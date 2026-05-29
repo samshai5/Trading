@@ -1,0 +1,361 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.container { padding: 1rem 0; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+.header h2 { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: var(--border-radius-md); background: var(--color-background-success); color: var(--color-text-success); }
+.badge.warn { background: var(--color-background-warning); color: var(--color-text-warning); }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.85rem 1rem; }
+.metric .label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric .value { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.metric .sub { font-size: 12px; margin-top: 2px; }
+.up { color: var(--color-text-success); }
+.down { color: var(--color-text-danger); }
+.neutral { color: var(--color-text-secondary); }
+.panel { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.panel h3 { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.stock-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.stock-row:last-child { border-bottom: none; }
+.stock-name { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.stock-sub { font-size: 12px; color: var(--color-text-secondary); }
+.stock-price { text-align: right; font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.signal { font-size: 11px; padding: 3px 10px; border-radius: var(--border-radius-md); font-weight: 500; }
+.signal.buy { background: var(--color-background-success); color: var(--color-text-success); }
+.signal.sell { background: var(--color-background-danger); color: var(--color-text-danger); }
+.signal.hold { background: var(--color-background-warning); color: var(--color-text-warning); }
+.chart-wrap { position: relative; width: 100%; height: 220px; margin-bottom: 1rem; }
+.controls { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+.ticker-btn { font-size: 13px; padding: 5px 14px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-primary); cursor: pointer; transition: background 0.15s; }
+.ticker-btn.active { background: var(--color-background-info); color: var(--color-text-info); border-color: transparent; }
+.news-item { padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.news-item:last-child { border-bottom: none; }
+.news-title { font-size: 14px; color: var(--color-text-primary); margin-bottom: 3px; }
+.news-meta { font-size: 12px; color: var(--color-text-secondary); display: flex; gap: 8px; }
+.sentiment { font-size: 11px; padding: 2px 8px; border-radius: var(--border-radius-md); }
+.sentiment.pos { background: var(--color-background-success); color: var(--color-text-success); }
+.sentiment.neg { background: var(--color-background-danger); color: var(--color-text-danger); }
+.sentiment.neu { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+.ai-box { background: var(--color-background-info); border: 0.5px solid var(--color-border-info); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.ai-box .ai-label { font-size: 11px; color: var(--color-text-info); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.ai-box .ai-text { font-size: 14px; color: var(--color-text-primary); line-height: 1.6; }
+.refresh-btn { font-size: 13px; padding: 6px 16px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-primary); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.score-bar { height: 6px; border-radius: 3px; background: var(--color-border-tertiary); margin-top: 6px; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 3px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+@media (max-width: 500px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+
+<div class="container">
+  <h2 class="sr-only">AI trading signal dashboard with stock prices, buy/sell recommendations, and market news</h2>
+
+  <div class="header">
+    <h2><i class="ti ti-chart-candle" aria-hidden="true" style="font-size:20px; vertical-align:-3px; margin-right:6px;"></i>AI trading signals</h2>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span id="market-badge" class="badge">Market open</span>
+      <span id="clock" style="font-size:13px; color:var(--color-text-secondary);"></span>
+      <button class="refresh-btn" onclick="refreshAll()"><i class="ti ti-refresh" aria-hidden="true"></i> Refresh</button>
+    </div>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="panel">
+    <h3>Price chart</h3>
+    <div class="controls" id="ticker-controls"></div>
+    <div class="chart-wrap">
+      <canvas id="priceChart" role="img" aria-label="Stock price chart for selected ticker showing simulated price movement over 30 days">Price history chart for selected stock.</canvas>
+    </div>
+  </div>
+
+  <div id="ai-insight" class="ai-box"></div>
+
+  <div class="panel">
+    <h3>AI signals — watchlist</h3>
+    <div id="stock-list"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel" style="margin-bottom:0;">
+      <h3>Sentiment score</h3>
+      <div id="sentiment-scores"></div>
+    </div>
+    <div class="panel" style="margin-bottom:0;">
+      <h3>Risk indicators</h3>
+      <div id="risk-indicators"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:1rem;">
+    <h3>Market & politics news feed</h3>
+    <div id="news-feed"></div>
+  </div>
+
+  <p style="font-size:11px; color:var(--color-text-tertiary); margin-top:1rem; text-align:center;">
+    <i class="ti ti-alert-triangle" aria-hidden="true" style="vertical-align:-2px;"></i>
+    For educational and portfolio purposes only. Not financial advice. Signals are simulated — connect a real API (Alpaca, Polygon.io, Yahoo Finance) for live data.
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const tickers = [
+  { symbol: 'AAPL', name: 'Apple Inc.', base: 211 },
+  { symbol: 'TSLA', name: 'Tesla Inc.', base: 248 },
+  { symbol: 'NVDA', name: 'Nvidia Corp.', base: 875 },
+  { symbol: 'MSFT', name: 'Microsoft', base: 415 },
+  { symbol: 'AMZN', name: 'Amazon', base: 198 },
+  { symbol: 'SPY', name: 'S&P 500 ETF', base: 528 },
+];
+
+const newsItems = [
+  { title: 'Fed signals potential rate cut in Q3 amid cooling inflation data', time: '2m ago', source: 'Reuters', sentiment: 'pos' },
+  { title: 'NVDA hits new highs as AI chip demand accelerates through 2026', time: '11m ago', source: 'Bloomberg', sentiment: 'pos' },
+  { title: 'White House announces new semiconductor export restrictions to China', time: '34m ago', source: 'WSJ', sentiment: 'neg' },
+  { title: 'TSLA Q2 deliveries beat estimates; shares rally pre-market', time: '1h ago', source: 'CNBC', sentiment: 'pos' },
+  { title: 'Senate committee passes new crypto regulation framework', time: '2h ago', source: 'Politico', sentiment: 'neu' },
+  { title: 'Oil prices drop 3% on OPEC supply increase announcement', time: '2h ago', source: 'AP', sentiment: 'neg' },
+  { title: 'Microsoft Azure growth accelerates; cloud wars intensify', time: '3h ago', source: 'FT', sentiment: 'pos' },
+  { title: 'Unemployment claims rise slightly, labor market shows resilience', time: '4h ago', source: 'MarketWatch', sentiment: 'neu' },
+];
+
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max)); }
+
+function simulatePrice(base) {
+  let price = base;
+  const prices = [];
+  for (let i = 0; i < 30; i++) {
+    price += rand(-base * 0.018, base * 0.02);
+    prices.push(parseFloat(price.toFixed(2)));
+  }
+  return prices;
+}
+
+function getSignal(prices) {
+  const last = prices[prices.length - 1];
+  const prev5avg = prices.slice(-6, -1).reduce((a, b) => a + b, 0) / 5;
+  const prev15avg = prices.slice(-16, -1).reduce((a, b) => a + b, 0) / 15;
+  const rsi = randInt(28, 74);
+  if (last > prev5avg && prev5avg > prev15avg && rsi < 65) return { label: 'buy', rsi };
+  if (last < prev5avg && prev5avg < prev15avg && rsi > 55) return { label: 'sell', rsi };
+  return { label: 'hold', rsi };
+}
+
+function getChange(prices) {
+  const pct = ((prices[prices.length - 1] - prices[0]) / prices[0] * 100).toFixed(2);
+  return pct;
+}
+
+let stockData = [];
+let currentTicker = 0;
+let chart = null;
+
+function buildStockData() {
+  stockData = tickers.map(t => {
+    const prices = simulatePrice(t.base);
+    const signal = getSignal(prices);
+    const change = getChange(prices);
+    return { ...t, prices, signal, change };
+  });
+}
+
+function renderMetrics() {
+  const s = stockData[0];
+  const spyChange = stockData[5].change;
+  const html = `
+    <div class="metric">
+      <div class="label">S&P 500 (30d)</div>
+      <div class="value ${spyChange >= 0 ? 'up' : 'down'}">${spyChange >= 0 ? '+' : ''}${spyChange}%</div>
+      <div class="sub ${spyChange >= 0 ? 'up' : 'down'}">${spyChange >= 0 ? 'Bullish trend' : 'Bearish trend'}</div>
+    </div>
+    <div class="metric">
+      <div class="label">Buy signals</div>
+      <div class="value up">${stockData.filter(s => s.signal.label === 'buy').length}</div>
+      <div class="sub neutral">of ${stockData.length} watched</div>
+    </div>
+    <div class="metric">
+      <div class="label">Sell signals</div>
+      <div class="value down">${stockData.filter(s => s.signal.label === 'sell').length}</div>
+      <div class="sub neutral">of ${stockData.length} watched</div>
+    </div>
+    <div class="metric">
+      <div class="label">Avg RSI</div>
+      <div class="value neutral">${Math.round(stockData.reduce((a, s) => a + s.signal.rsi, 0) / stockData.length)}</div>
+      <div class="sub neutral">Neutral zone</div>
+    </div>
+  `;
+  document.getElementById('metrics').innerHTML = html;
+}
+
+function renderTickerControls() {
+  document.getElementById('ticker-controls').innerHTML = stockData.map((s, i) =>
+    `<button class="ticker-btn ${i === currentTicker ? 'active' : ''}" onclick="switchTicker(${i})">${s.symbol}</button>`
+  ).join('');
+}
+
+function renderChart() {
+  const s = stockData[currentTicker];
+  const labels = Array.from({ length: 30 }, (_, i) => `D${i + 1}`);
+  const isUp = parseFloat(s.change) >= 0;
+  const color = isUp ? '#1D9E75' : '#E24B4A';
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('priceChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: s.symbol,
+        data: s.prices,
+        borderColor: color,
+        backgroundColor: color + '18',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { autoSkip: true, maxTicksLimit: 8, font: { size: 11 }, color: '#888' }, grid: { display: false } },
+        y: { ticks: { font: { size: 11 }, color: '#888', callback: v => '$' + v.toFixed(0) }, grid: { color: 'rgba(128,128,128,0.1)' } }
+      }
+    }
+  });
+}
+
+function switchTicker(i) {
+  currentTicker = i;
+  renderTickerControls();
+  renderChart();
+  renderAIInsight();
+}
+
+function renderAIInsight() {
+  const s = stockData[currentTicker];
+  const isUp = parseFloat(s.change) >= 0;
+  const signalText = {
+    buy: `The AI engine is flagging <strong>${s.symbol}</strong> as a <strong>buy signal</strong>. Price momentum is trending above both the 5-day and 15-day moving averages, and RSI at ${s.signal.rsi} suggests room to run before overbought territory. Consider scaling in with a defined stop-loss.`,
+    sell: `The AI engine is flagging <strong>${s.symbol}</strong> as a <strong>sell signal</strong>. Price is trending below key moving averages and RSI at ${s.signal.rsi} shows weakening momentum. Risk/reward currently favors reducing or exiting this position.`,
+    hold: `The AI engine recommends <strong>holding ${s.symbol}</strong>. Price action is consolidating and RSI at ${s.signal.rsi} is in neutral territory. No clear directional edge — wait for a stronger signal before acting.`,
+  };
+  document.getElementById('ai-insight').innerHTML = `
+    <div class="ai-label"><i class="ti ti-robot" aria-hidden="true" style="font-size:14px; vertical-align:-2px; margin-right:4px;"></i>AI analysis — ${s.symbol}</div>
+    <div class="ai-text">${signalText[s.signal.label]} 30-day performance: <strong class="${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${s.change}%</strong>.</div>
+  `;
+}
+
+function renderStockList() {
+  document.getElementById('stock-list').innerHTML = stockData.map(s => {
+    const isUp = parseFloat(s.change) >= 0;
+    return `
+      <div class="stock-row">
+        <div>
+          <div class="stock-name">${s.symbol}</div>
+          <div class="stock-sub">${s.name}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="stock-price">
+            $${s.prices[s.prices.length - 1].toFixed(2)}
+            <div class="sub ${isUp ? 'up' : 'down'}" style="font-size:12px;">${isUp ? '+' : ''}${s.change}%</div>
+          </div>
+          <span class="signal ${s.signal.label}">${s.signal.label.toUpperCase()}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSentimentScores() {
+  const items = [
+    { label: 'Overall market', score: randInt(52, 72) },
+    { label: 'Tech sector', score: randInt(60, 80) },
+    { label: 'Political climate', score: randInt(38, 55) },
+    { label: 'Consumer confidence', score: randInt(45, 65) },
+  ];
+  document.getElementById('sentiment-scores').innerHTML = items.map(item => {
+    const color = item.score >= 65 ? '#1D9E75' : item.score >= 50 ? '#BA7517' : '#E24B4A';
+    return `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-primary); margin-bottom:4px;">
+          <span>${item.label}</span><span style="color:${color}; font-weight:500;">${item.score}/100</span>
+        </div>
+        <div class="score-bar"><div class="score-fill" style="width:${item.score}%; background:${color};"></div></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRiskIndicators() {
+  const vix = (rand(14, 28)).toFixed(1);
+  const vixLevel = vix > 22 ? 'High' : vix > 17 ? 'Moderate' : 'Low';
+  const vixColor = vix > 22 ? 'var(--color-text-danger)' : vix > 17 ? 'var(--color-text-warning)' : 'var(--color-text-success)';
+  const items = [
+    { label: 'VIX (volatility)', value: vix, sub: vixLevel, color: vixColor },
+    { label: 'Market breadth', value: `${randInt(52, 68)}%`, sub: 'Advancing stocks', color: 'var(--color-text-success)' },
+    { label: 'Put/call ratio', value: (rand(0.7, 1.2)).toFixed(2), sub: 'Near neutral', color: 'var(--color-text-secondary)' },
+    { label: 'Fear & greed', value: randInt(45, 72), sub: 'Greed zone', color: 'var(--color-text-warning)' },
+  ];
+  document.getElementById('risk-indicators').innerHTML = items.map(item => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div>
+        <div style="font-size:13px; color:var(--color-text-primary);">${item.label}</div>
+        <div style="font-size:11px; color:var(--color-text-secondary);">${item.sub}</div>
+      </div>
+      <div style="font-size:16px; font-weight:500; color:${item.color};">${item.value}</div>
+    </div>
+  `).join('');
+}
+
+function renderNews() {
+  document.getElementById('news-feed').innerHTML = newsItems.map(n => `
+    <div class="news-item">
+      <div class="news-title">${n.title}</div>
+      <div class="news-meta">
+        <span>${n.source}</span>
+        <span>${n.time}</span>
+        <span class="sentiment ${n.sentiment}">${n.sentiment === 'pos' ? 'Bullish' : n.sentiment === 'neg' ? 'Bearish' : 'Neutral'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  const isOpen = h >= 9 && h < 16;
+  document.getElementById('clock').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const badge = document.getElementById('market-badge');
+  badge.textContent = isOpen ? 'Market open' : 'Market closed';
+  badge.className = isOpen ? 'badge' : 'badge warn';
+}
+
+function refreshAll() {
+  buildStockData();
+  renderMetrics();
+  renderTickerControls();
+  renderChart();
+  renderAIInsight();
+  renderStockList();
+  renderSentimentScores();
+  renderRiskIndicators();
+}
+
+buildStockData();
+renderMetrics();
+renderTickerControls();
+renderChart();
+renderAIInsight();
+renderStockList();
+renderSentimentScores();
+renderRiskIndicators();
+renderNews();
+updateClock();
+setInterval(updateClock, 30000);
+</script>
